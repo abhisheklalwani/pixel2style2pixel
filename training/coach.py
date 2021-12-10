@@ -11,7 +11,7 @@ from torch.utils.tensorboard import SummaryWriter
 import torch.nn.functional as F
 
 from utils import common, train_utils
-from criteria import id_loss, w_norm, moco_loss
+from criteria import id_loss, w_norm, moco_loss, edge_loss
 from configs import data_configs
 from datasets.images_dataset import ImagesDataset
 from criteria.lpips.lpips import LPIPS
@@ -52,6 +52,8 @@ class Coach:
 			self.w_norm_loss = w_norm.WNormLoss(start_from_latent_avg=self.opts.start_from_latent_avg)
 		if self.opts.moco_lambda > 0:
 			self.moco_loss = moco_loss.MocoLoss().to(self.device).eval()
+		if self.opts.edge_lambda > 0:
+			self.edge_loss = edge_loss.EdgeLoss().to(self.device).eval()
 
 		# Initialize optimizer
 		self.optimizer = self.configure_optimizers()
@@ -237,6 +239,10 @@ class Coach:
 			loss_dict['loss_moco'] = float(loss_moco)
 			loss_dict['id_improve'] = float(sim_improvement)
 			loss += loss_moco * self.opts.moco_lambda
+		if self.opts.edge_lambda > 0:
+			loss_edge = self.edge_loss(y_hat, y)
+			loss_dict['loss_edge'] = float(loss_edge)
+			loss += loss_edge * self.opts.edge_lambda
 
 		loss_dict['loss'] = float(loss)
 		return loss, loss_dict, id_logs
